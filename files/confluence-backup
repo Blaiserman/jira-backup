@@ -1,0 +1,31 @@
+#!/bin/bash
+
+DATE=`date +"%d%m%y"`
+BK_PATH=/opt/backups
+CONFLUENCE=/opt/confluence-3.5.3-std
+CONFLUENCE_HOME=/opt/confluence-home
+find $BK_PATH -mtime 3 -exec rm -f {} \;
+
+if [ -f $BK_PATH/confluence-back-$DATE.tar.bz2 ]
+     then
+        echo " it is already backed up"
+        exit 1
+fi 
+
+if [ -f  $BK_PATH/confluence-db.out ]
+     then
+        rm $BK_PATH/confluence-db.out
+fi
+
+su - postgres -c ' pg_dump -Cf /opt/confluence-backup/confluence-db.out databasename -i'
+
+tar cjf  $BK_PATH/confluence-back-$DATE.tar.bz2 --exclude "$CONFLUENCE_HOME/backups" --exclude "$CONFLUENCE_HOME/restore" $CONFLUENCE $CONFLUENCE_HOME $BK_PATH/confluence-db.out
+tar tjf $BK_PATH/confluence-back-$DATE.tar.bz2
+if [ $? -eq 0 ]
+    then
+        logger -i -t confluence-backup "confluence backup has been taken successfuly in `date +"%d-%m-%y"`"
+        echo "confluence backup was taken successfuly in `date +"%d-%m-%y"` "|mail -s "confluence backup" root -c xxx@xxx.xxx
+    else
+        logger -i -t confluence-backup "confluence backup finished with some errors"
+         echo "confluence backup finished with some errors"|mail -s "confluence backup" root -c xxx@xxx.xxx
+    fi
